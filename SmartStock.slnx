@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="LEARNING-LOG.md" />
+  </Folder>
+  <Project Path="SmartStock.Client/SmartStock.Client.csproj" />
+  <Project Path="SmartStock.Server/SmartStock.Server.csproj" Id="f6cbe3b5-c820-48eb-b9ef-741a78e19289" />
+  <Project Path="SmartStock.Shared/SmartStock.Shared.csproj" Id="ca73e9a8-64de-4019-ad50-7bbd167f6bde" />
+</Solution>
