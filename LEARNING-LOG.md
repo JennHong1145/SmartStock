@@ -178,3 +178,33 @@ I'd use a view when the report is a big join with grouping that lots of places n
 - `vw_SalesSummaryByProduct` exists and returns correct totals (checked against the raw tables).
 - I can read it through EF with strongly typed results.
 - I can explain why string concatenation in `FromSqlRaw` is a SQL injection risk and `FromSqlInterpolated` isn't.
+
+## Day 13 - Seeding & Migration Lifecycle
+
+### What I learned
+- **Two kinds of seed data:** Small fixed lookups (the categories, the roles) stay in `HasData`, because they belong to the schema and need fixed `Id`s. Bigger sample data goes in a `DataSeeder` class, because `HasData` puts every row into a migration. Dozens of fake products would make the migrations noisy and hard to read.
+- **Development only:** `DataSeeder` runs at startup inside the existing scope, but only when `app.Environment.IsDevelopment()` is true. So realistic sample data never shows up in production.
+- **Guard must match my own data:** My first version skipped seeding if any customer existed. My test database already had one customer from Day 10, so nothing was added. I changed the check to look for my own `SMP-` SKUs. After that I got 21 customers, 5 suppliers, 39 products and 39 stock movements, and a second run changed nothing.
+- **Seeder goes through `SaveChangesAsync`:** That way the audit override fills in `CreatedAt`. Opening stock is added as `StockMovements` rows, not a stock column, which matches the ledger pattern.
+- **User-secrets:** The connection string now lives in `secrets.json` outside the repo, and I removed it from `appsettings.Development.json`. The app still runs because secrets load automatically in Development. A search for `ConnectionStrings` in the appsettings files comes back empty. Old commits still contain the old string. It's only LocalDB with Windows login, but a real password would need to be changed.
+- **`Remove-Migration`:** It deletes the migration files and puts the model snapshot back, but only for a migration that hasn't been applied. I added a scratch `ScratchNote` column, created `ScratchTest`, read its `Up()` and `Down()`, then removed the migration and the property. `git status` showed no migration changes.
+- **Roll back and forward:** `Update-Database AddConstraints` ran `Down()` of `AddReportingView`, so the view was gone and the history table ended at `AddConstraints`. `Update-Database` then brought it back.
+- **Migration bundle:** `dotnet ef migrations bundle` makes one `efbundle.exe` that applies the migrations without needing the SDK or source code. It has no connection string inside, so you pass `--connection`. I ran it against a separate test database and it applied all the migrations. It only applies migrations, so the `DataSeeder` rows aren't there.
+
+### What I tested
+- Ran the seeder twice and the row counts stayed the same.
+- Started the app after removing the connection string from `appsettings.Development.json`, and Swagger and the API still worked.
+- Rolled back one migration and re-applied it, checking the view and `__EFMigrationsHistory` in SSMS both times.
+- Ran the bundle against a throwaway database, checked the history table, then dropped the database.
+
+### Learning exercise: safe migrations on a team project
+1. Pull the latest `main` first, so my model and the `ModelSnapshot` start from what everyone else has.
+2. Make my model change, then run `Add-Migration` with a clear name.
+3. Open the generated file and read `Up()` and `Down()`. Check it only does what I meant, with no surprise drops or renames.
+4. Run `Update-Database` on my local database and test the app. Also try rolling back once to check `Down()` works.
+5. Commit the migration, its `.Designer.cs` and the updated `AppDbContextModelSnapshot.cs` together. If two people add migrations at the same time, the second one pulls, removes their own migration, and adds it again.
+
+### Definition of Done
+- [x] Realistic sample data loads only in Development
+- [x] Connection string no longer committed to source control
+- [x] Rolled a migration back and forward successfully
