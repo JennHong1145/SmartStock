@@ -19,6 +19,15 @@ namespace SmartStock.Server.Data.Configurations
 			builder.Property(p => p.Price)
 				.HasPrecision(18, 2);
 
+			builder.Property(p => p.RowVersion)
+				.IsRowVersion();
+
+			builder.Property(p => p.CreatedBy).HasMaxLength(450);
+			builder.Property(p => p.UpdatedBy).HasMaxLength(450);
+
+			// Soft delete: deleted products disappear from normal queries
+			builder.HasQueryFilter(p => !p.IsDeleted);
+
 			builder.HasIndex(p => p.SKU)
 				.IsUnique();
 

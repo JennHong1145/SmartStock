@@ -288,9 +288,19 @@ namespace SmartStock.Server.Migrations
                         .HasMaxLength(250)
                         .HasColumnType("nvarchar(250)");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -300,6 +310,13 @@ namespace SmartStock.Server.Migrations
                     b.Property<string>("Phone")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
@@ -356,10 +373,17 @@ namespace SmartStock.Server.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
                     b.Property<string>("Name")
@@ -371,10 +395,23 @@ namespace SmartStock.Server.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<string>("SKU")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
@@ -392,8 +429,10 @@ namespace SmartStock.Server.Migrations
                             CategoryId = 1,
                             CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             IsActive = true,
+                            IsDeleted = false,
                             Name = "Laptop 14\"",
                             Price = 1299.00m,
+                            RowVersion = new byte[0],
                             SKU = "ELEC-001"
                         },
                         new
@@ -402,8 +441,10 @@ namespace SmartStock.Server.Migrations
                             CategoryId = 1,
                             CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             IsActive = true,
+                            IsDeleted = false,
                             Name = "Smartphone",
                             Price = 799.50m,
+                            RowVersion = new byte[0],
                             SKU = "ELEC-002"
                         },
                         new
@@ -412,8 +453,10 @@ namespace SmartStock.Server.Migrations
                             CategoryId = 2,
                             CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             IsActive = true,
+                            IsDeleted = false,
                             Name = "USB-C Cable",
                             Price = 9.99m,
+                            RowVersion = new byte[0],
                             SKU = "ACC-001"
                         },
                         new
@@ -422,8 +465,10 @@ namespace SmartStock.Server.Migrations
                             CategoryId = 2,
                             CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             IsActive = true,
+                            IsDeleted = false,
                             Name = "Wireless Mouse",
                             Price = 24.90m,
+                            RowVersion = new byte[0],
                             SKU = "ACC-002"
                         },
                         new
@@ -432,8 +477,10 @@ namespace SmartStock.Server.Migrations
                             CategoryId = 3,
                             CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             IsActive = true,
+                            IsDeleted = false,
                             Name = "A4 Paper Ream",
                             Price = 5.50m,
+                            RowVersion = new byte[0],
                             SKU = "OFF-001"
                         },
                         new
@@ -442,8 +489,10 @@ namespace SmartStock.Server.Migrations
                             CategoryId = 3,
                             CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             IsActive = true,
+                            IsDeleted = false,
                             Name = "Ballpoint Pens (10)",
                             Price = 3.20m,
+                            RowVersion = new byte[0],
                             SKU = "OFF-002"
                         },
                         new
@@ -452,8 +501,10 @@ namespace SmartStock.Server.Migrations
                             CategoryId = 4,
                             CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             IsActive = true,
+                            IsDeleted = false,
                             Name = "Bottled Water 500ml",
                             Price = 1.00m,
+                            RowVersion = new byte[0],
                             SKU = "BEV-001"
                         },
                         new
@@ -462,8 +513,10 @@ namespace SmartStock.Server.Migrations
                             CategoryId = 4,
                             CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified),
                             IsActive = false,
+                            IsDeleted = false,
                             Name = "Orange Juice 1L",
                             Price = 3.75m,
+                            RowVersion = new byte[0],
                             SKU = "BEV-002"
                         });
                 });
@@ -478,6 +531,12 @@ namespace SmartStock.Server.Migrations
 
                     b.Property<DateTime>("OrderDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -541,6 +600,12 @@ namespace SmartStock.Server.Migrations
 
                     b.Property<DateTime>("OrderDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -640,6 +705,16 @@ namespace SmartStock.Server.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -648,6 +723,13 @@ namespace SmartStock.Server.Migrations
                     b.Property<string>("Phone")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(450)
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
