@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using SmartStock.Server.Services;
 using SmartStock.Shared.Dtos;
 
@@ -26,6 +27,10 @@ namespace SmartStock.Server.Controllers
 			catch (BusinessRuleException ex)
 			{
 				return BadRequest(new { message = ex.Message });
+			}
+			catch (DbUpdateConcurrencyException)
+			{
+				return Conflict(new { message = "Someone else changed this data at the same time. Please try again." });
 			}
 		}
 	}

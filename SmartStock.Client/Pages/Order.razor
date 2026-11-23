@@ -1,0 +1,134 @@
+﻿@page "/order"
+@inject ProductApiClient Products
+@inject OrderApiClient Orders
+
+<PageTitle>Place Order</PageTitle>
+
+<h1>Place Order</h1>
+
+@if (_result != null)
+{
+	<div class="alert alert-success">
+		Order <strong>#@_result.OrderId</strong> placed. Invoice <strong>@_result.InvoiceNumber</strong>,
+		total @_result.TotalAmount.ToString("C").
+	</div>
+}
+
+@if (_error != null)
+{
+	<div class="alert @(_isConflict ? "alert-warning" : "alert-danger")">@_error</div>
+}
+
+@if (_products == null)
+{
+	<p><em>Loading products...</em></p>
+}
+else
+{
+	<div class="mb-3" style="max-width: 200px;">
+		<label class="form-label">Customer Id</label>
+		<input type="number" class="form-control" min="1" @bind="_request.CustomerId" />
+	</div>
+
+	<table class="table align-middle">
+		<thead>
+			<tr>
+				<th>Product</th>
+				<th style="width: 140px;">Quantity</th>
+				<th style="width: 90px;"></th>
+			</tr>
+		</thead>
+		<tbody>
+			@foreach (var line in _request.Items)
+			{
+				<tr>
+					<td>
+						<select class="form-select" @bind="line.ProductId">
+							<option value="0">-- choose a product --</option>
+							@foreach (var p in _products)
+							{
+								<option value="@p.Id">@p.SKU - @p.Name (stock @p.CurrentStock)</option>
+							}
+						</select>
+					</td>
+					<td><input type="number" class="form-control" min="1" @bind="line.Quantity" /></td>
+					<td><button class="btn btn-outline-danger btn-sm" @onclick="() => RemoveLine(line)">Remove</button></td>
+				</tr>
+			}
+		</tbody>
+	</table>
+
+	<button class="btn btn-outline-secondary me-2" @onclick="AddLine">Add line</button>
+	<button class="btn btn-primary" disabled="@_submitting" @onclick="SubmitAsync">
+		@(_submitting ? "Placing..." : "Place order")
+	</button>
+}
+
+@code {
+	private readonly PlaceSalesOrderRequest _request = new();
+	private List<ProductListDto>? _products;
+	private SalesOrderResultDto? _result;
+	private string? _error;
+	private bool _isConflict;
+	private bool _submitting;
+
+	protected override async Task OnInitializedAsync()
+	{
+		try
+		{
+			// First 100 products is enough for this learning project
+			var page = await Products.GetPagedAsync(new ProductListQuery { PageSize = 100 });
+			_products = page.Items;
+		}
+		catch (HttpRequestException)
+		{
+			_products = new();
+			_error = "Could not load products. Is the API running?";
+		}
+
+		_request.Items.Add(new OrderLineRequest { Quantity = 1 });
+	}
+
+	private void AddLine() => _request.Items.Add(new OrderLineRequest { Quantity = 1 });
+
+	private void RemoveLine(OrderLineRequest line) => _request.Items.Remove(line);
+
+	private async Task SubmitAsync()
+	{
+		_result = null;
+		_error = null;
+		_isConflict = false;
+
+		// Catch the obvious mistakes here, the server still checks everything again
+		if (_request.CustomerId <= 0)
+		{
+			_error = "Enter a customer id.";
+			return;
+		}
+		if (_request.Items.Count == 0 || _request.Items.Any(i => i.ProductId == 0 || i.Quantity < 1))
+		{
+			_error = "Every line needs a product and a quantity of at least 1.";
+			return;
+		}
+
+		_submitting = true;
+		var response = await Orders.PlaceOrderAsync(_request);
+		_submitting = false;
+
+		if (response.Success)
+		{
+			_result = response.Value;
+			_request.Items.Clear();
+			_request.Items.Add(new OrderLineRequest { Quantity = 1 });
+
+			// Stock changed, so reload the dropdown
+			var page = await Products.GetPagedAsync(new ProductListQuery { PageSize = 100 });
+			_products = page.Items;
+		}
+		else
+		{
+			_error = response.Error;
+			_isConflict = response.StatusCode == System.Net.HttpStatusCode.Conflict;
+		}
+	}
+}

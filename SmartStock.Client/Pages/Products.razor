@@ -1,0 +1,131 @@
+﻿@page "/products"
+@inject ProductApiClient Api
+
+<PageTitle>Products</PageTitle>
+
+<h1>Products</h1>
+
+<div class="row g-2 mb-3">
+	<div class="col-md-4">
+		<input class="form-control" placeholder="Search SKU or name"
+			   @bind="_query.Search" @bind:event="oninput" @onkeyup="OnSearchKey" />
+	</div>
+	<div class="col-md-3">
+		<select class="form-select" @bind="_query.SortBy" @bind:after="ReloadFromFirstPage">
+			<option value="name">Name</option>
+			<option value="sku">SKU</option>
+			<option value="category">Category</option>
+			<option value="price">Price</option>
+			<option value="stock">Stock</option>
+		</select>
+	</div>
+	<div class="col-md-2">
+		<div class="form-check mt-2">
+			<input class="form-check-input" type="checkbox" id="desc"
+				   @bind="_query.Descending" @bind:after="ReloadFromFirstPage" />
+			<label class="form-check-label" for="desc">Descending</label>
+		</div>
+	</div>
+	<div class="col-md-3">
+		<button class="btn btn-primary" @onclick="ReloadFromFirstPage">Search</button>
+	</div>
+</div>
+
+@if (_error != null)
+{
+	<div class="alert alert-danger">@_error</div>
+}
+else if (_loading)
+{
+	<p><em>Loading...</em></p>
+}
+else if (_result == null || _result.Items.Count == 0)
+{
+	<p>No products found.</p>
+}
+else
+{
+	<table class="table table-striped">
+		<thead>
+			<tr>
+				<th>SKU</th>
+				<th>Name</th>
+				<th>Category</th>
+				<th class="text-end">Price</th>
+				<th class="text-end">Stock</th>
+			</tr>
+		</thead>
+		<tbody>
+			@foreach (var p in _result.Items)
+			{
+				<tr>
+					<td>@p.SKU</td>
+					<td>@p.Name</td>
+					<td>@p.CategoryName</td>
+					<td class="text-end">@p.Price.ToString("C")</td>
+					<td class="text-end">@p.CurrentStock</td>
+				</tr>
+			}
+		</tbody>
+	</table>
+
+	<div class="d-flex align-items-center gap-3">
+		<button class="btn btn-outline-secondary" disabled="@(_query.Page <= 1)" @onclick="PreviousPage">Previous</button>
+		<span>Page @_result.Page of @TotalPages (@_result.TotalCount products)</span>
+		<button class="btn btn-outline-secondary" disabled="@(_query.Page >= TotalPages)" @onclick="NextPage">Next</button>
+	</div>
+}
+
+@code {
+	private readonly ProductListQuery _query = new() { PageSize = 10 };
+	private PagedResult<ProductListDto>? _result;
+	private bool _loading;
+	private string? _error;
+
+	private int TotalPages => _result == null || _result.PageSize == 0
+		? 1
+		: Math.Max(1, (int)Math.Ceiling(_result.TotalCount / (double)_result.PageSize));
+
+	protected override async Task OnInitializedAsync() => await LoadAsync();
+
+	private async Task LoadAsync()
+	{
+		_loading = true;
+		_error = null;
+		try
+		{
+			_result = await Api.GetPagedAsync(_query);
+		}
+		catch (HttpRequestException)
+		{
+			_error = "Could not reach the server. Is the API running?";
+		}
+		finally
+		{
+			_loading = false;
+		}
+	}
+
+	private async Task ReloadFromFirstPage()
+	{
+		_query.Page = 1;
+		await LoadAsync();
+	}
+
+	private async Task OnSearchKey(KeyboardEventArgs e)
+	{
+		if (e.Key == "Enter") await ReloadFromFirstPage();
+	}
+
+	private async Task PreviousPage()
+	{
+		_query.Page--;
+		await LoadAsync();
+	}
+
+	private async Task NextPage()
+	{
+		_query.Page++;
+		await LoadAsync();
+	}
+}
