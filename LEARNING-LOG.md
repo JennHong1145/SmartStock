@@ -58,3 +58,19 @@
 - **Two contexts needed to test it:** Two variables in the same `DbContext` give the same tracked object, so there's no conflict. I used two scopes so each had its own `AppDbContext`, like two separate users.
 - **Soft delete with a query filter:** `HasQueryFilter(x => !x.IsDeleted)` hides deleted rows from normal queries automatically. `IgnoreQueryFilters()` shows them again. When I removed a customer, the row stayed in the table with `IsDeleted = 1`.
 - **Audit fields in `SaveChangesAsync`:** I override it so `CreatedAt` and `UpdatedAt` are filled automatically for entities that implement `IAuditable`. I also had to make sure `CreatedAt` isn't overwritten on updates. It only worked after `Product` actually declared `: IAuditable, ISoftDelete`. Before that, `UpdatedAt` stayed `NULL`.
+
+
+## Day 8 – Constraints, Indexes & Computed Columns
+
+- **Check constraints:** I added rules in the database itself, so a negative price, quantity or cost gets rejected even if my C# code forgets to check. I tested it by setting a product price to -5 and SQL Server blocked it with `CK_Products_Price`.
+- **Computed column (LineTotal):** SQL Server works out `Quantity * UnitPrice` (or `UnitCost`) by itself, so I never set it in code. That means it can never be out of sync with the quantity and price.
+- **Indexes:** EF already indexes every foreign key. I only had to add indexes for the columns people search by: `Customer.Email` and `Supplier.ContactEmail`. I made them non-unique because two people can share an email.
+
+**3 lines from Script-Migration that surprised me:**
+1. `ALTER TABLE [SalesOrderItems] ADD [LineTotal] AS [Quantity] * [UnitPrice] PERSISTED;` – a computed column has no type or default, it's just a formula. `PERSISTED` means SQL Server saves the result instead of recalculating it on every read.
+2. `ALTER TABLE [Products] ADD CONSTRAINT [CK_Products_Price] CHECK ([Price] >= 0);` – a check constraint is only one line of SQL, but it protects the data from every app and every query.
+3. `INSERT INTO [__EFMigrationsHistory] ... VALUES (N'20261123034938_AddConstraints', ...)` – this is how EF remembers which migrations are already applied, and it's the last step inside the transaction.
+
+**Also noticed:** the whole script is wrapped in `BEGIN TRANSACTION` and `COMMIT`, so if one step fails, nothing is half-applied.
+
+**Test:** the negative price update failed with error 547, which is what I wanted. The foreign key also blocked an insert with a missing parent order, so that rule works too.

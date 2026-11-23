@@ -31,6 +31,8 @@ namespace SmartStock.Server.Data.Configurations
 			builder.HasIndex(p => p.SKU)
 				.IsUnique();
 
+			builder.ToTable(t => t.HasCheckConstraint("CK_Products_Price", "[Price] >= 0"));
+
 			// Fixed date: HasData must be deterministic, so never use DateTime.UtcNow here
 			var seedDate = new DateTime(2025, 1, 1);
 

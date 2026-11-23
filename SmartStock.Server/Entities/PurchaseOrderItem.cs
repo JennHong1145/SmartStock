@@ -15,5 +15,7 @@
 		public int Quantity { get; set; }
 
 		public decimal UnitCost { get; set; }
+
+		public decimal LineTotal { get; private set; }
 	}
 }

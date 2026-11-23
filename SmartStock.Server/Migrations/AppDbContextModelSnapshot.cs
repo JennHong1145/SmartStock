@@ -320,6 +320,8 @@ namespace SmartStock.Server.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("Email");
+
                     b.ToTable("Customers");
                 });
 
@@ -420,7 +422,10 @@ namespace SmartStock.Server.Migrations
                     b.HasIndex("SKU")
                         .IsUnique();
 
-                    b.ToTable("Products");
+                    b.ToTable("Products", t =>
+                        {
+                            t.HasCheckConstraint("CK_Products_Price", "[Price] >= 0");
+                        });
 
                     b.HasData(
                         new
@@ -565,6 +570,12 @@ namespace SmartStock.Server.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<decimal>("LineTotal")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasComputedColumnSql("[Quantity] * [UnitCost]", true);
+
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
 
@@ -584,7 +595,12 @@ namespace SmartStock.Server.Migrations
 
                     b.HasIndex("PurchaseOrderId");
 
-                    b.ToTable("PurchaseOrderItems");
+                    b.ToTable("PurchaseOrderItems", t =>
+                        {
+                            t.HasCheckConstraint("CK_PurchaseOrderItems_Quantity", "[Quantity] >= 0");
+
+                            t.HasCheckConstraint("CK_PurchaseOrderItems_UnitCost", "[UnitCost] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("SmartStock.Server.Entities.SalesOrder", b =>
@@ -631,6 +647,12 @@ namespace SmartStock.Server.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<decimal>("LineTotal")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)")
+                        .HasComputedColumnSql("[Quantity] * [UnitPrice]", true);
+
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
 
@@ -650,7 +672,12 @@ namespace SmartStock.Server.Migrations
 
                     b.HasIndex("SalesOrderId");
 
-                    b.ToTable("SalesOrderItems");
+                    b.ToTable("SalesOrderItems", t =>
+                        {
+                            t.HasCheckConstraint("CK_SalesOrderItems_Quantity", "[Quantity] >= 0");
+
+                            t.HasCheckConstraint("CK_SalesOrderItems_UnitPrice", "[UnitPrice] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("SmartStock.Server.Entities.StockMovement", b =>
@@ -686,7 +713,10 @@ namespace SmartStock.Server.Migrations
 
                     b.HasIndex("ProductId", "MovementDate");
 
-                    b.ToTable("StockMovements");
+                    b.ToTable("StockMovements", t =>
+                        {
+                            t.HasCheckConstraint("CK_StockMovements_Quantity", "[Quantity] >= 0");
+                        });
                 });
 
             modelBuilder.Entity("SmartStock.Server.Entities.Supplier", b =>
@@ -732,6 +762,8 @@ namespace SmartStock.Server.Migrations
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ContactEmail");
 
                     b.ToTable("Suppliers");
                 });

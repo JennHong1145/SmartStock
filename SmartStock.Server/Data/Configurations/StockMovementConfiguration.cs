@@ -25,6 +25,8 @@ namespace SmartStock.Server.Data.Configurations
 
 			// Composite index for "current stock" and "stock history" queries
 			builder.HasIndex(m => new { m.ProductId, m.MovementDate });
+
+			builder.ToTable(t => t.HasCheckConstraint("CK_StockMovements_Quantity", "[Quantity] >= 0"));
 		}
 	}
 }
