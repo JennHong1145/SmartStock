@@ -18,6 +18,9 @@ namespace SmartStock.Server.Data
 
 		public DbSet<Customer> Customers { get; set; }
 
+		public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
+
+		public DbSet<PurchaseOrderItem> PurchaseOrderItems { get; set; }
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{
 			base.OnModelCreating(modelBuilder);
