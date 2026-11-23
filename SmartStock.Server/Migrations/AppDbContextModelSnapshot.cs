@@ -306,6 +306,42 @@ namespace SmartStock.Server.Migrations
                     b.ToTable("Customers");
                 });
 
+            modelBuilder.Entity("SmartStock.Server.Entities.Invoice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("DueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<bool>("IsPaid")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("IssueDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SalesOrderId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceNumber")
+                        .IsUnique();
+
+                    b.HasIndex("SalesOrderId")
+                        .IsUnique();
+
+                    b.ToTable("Invoices");
+                });
+
             modelBuilder.Entity("SmartStock.Server.Entities.Product", b =>
                 {
                     b.Property<int>("Id")
@@ -492,6 +528,66 @@ namespace SmartStock.Server.Migrations
                     b.ToTable("PurchaseOrderItems");
                 });
 
+            modelBuilder.Entity("SmartStock.Server.Entities.SalesOrder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("OrderDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.ToTable("SalesOrders");
+                });
+
+            modelBuilder.Entity("SmartStock.Server.Entities.SalesOrderItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SalesOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("SalesOrderId");
+
+                    b.ToTable("SalesOrderItems");
+                });
+
             modelBuilder.Entity("SmartStock.Server.Entities.Supplier", b =>
                 {
                     b.Property<int>("Id")
@@ -583,6 +679,17 @@ namespace SmartStock.Server.Migrations
                     b.Navigation("ParentCategory");
                 });
 
+            modelBuilder.Entity("SmartStock.Server.Entities.Invoice", b =>
+                {
+                    b.HasOne("SmartStock.Server.Entities.SalesOrder", "SalesOrder")
+                        .WithOne("Invoice")
+                        .HasForeignKey("SmartStock.Server.Entities.Invoice", "SalesOrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("SalesOrder");
+                });
+
             modelBuilder.Entity("SmartStock.Server.Entities.Product", b =>
                 {
                     b.HasOne("SmartStock.Server.Entities.Category", "Category")
@@ -624,6 +731,36 @@ namespace SmartStock.Server.Migrations
                     b.Navigation("PurchaseOrder");
                 });
 
+            modelBuilder.Entity("SmartStock.Server.Entities.SalesOrder", b =>
+                {
+                    b.HasOne("SmartStock.Server.Entities.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
+                });
+
+            modelBuilder.Entity("SmartStock.Server.Entities.SalesOrderItem", b =>
+                {
+                    b.HasOne("SmartStock.Server.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SmartStock.Server.Entities.SalesOrder", "SalesOrder")
+                        .WithMany("Items")
+                        .HasForeignKey("SalesOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+
+                    b.Navigation("SalesOrder");
+                });
+
             modelBuilder.Entity("SmartStock.Server.Entities.Category", b =>
                 {
                     b.Navigation("Products");
@@ -633,6 +770,13 @@ namespace SmartStock.Server.Migrations
 
             modelBuilder.Entity("SmartStock.Server.Entities.PurchaseOrder", b =>
                 {
+                    b.Navigation("Items");
+                });
+
+            modelBuilder.Entity("SmartStock.Server.Entities.SalesOrder", b =>
+                {
+                    b.Navigation("Invoice");
+
                     b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
