@@ -2,7 +2,7 @@
 
 namespace SmartStock.Server.Repositories
 {
-	public interface IUnitOfWork : IDisposable
+	public interface IUnitOfWork
 	{
 		IRepository<Category> Categories { get; }
 		IRepository<Product> Products { get; }
@@ -15,8 +15,13 @@ namespace SmartStock.Server.Repositories
 
 		Task<int> SaveChangesAsync(CancellationToken ct = default);
 
-		Task BeginTransactionAsync(CancellationToken ct = default);
-		Task CommitAsync(CancellationToken ct = default);
-		Task RollbackAsync(CancellationToken ct = default);
+		// Runs the operation in one transaction, wrapped in the retry strategy
+		Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> operation, CancellationToken ct = default);
+
+		// Current stock = sum of the ledger (see StockQueries)
+		Task<int> GetCurrentStockAsync(int productId, CancellationToken ct = default);
+
+		// Locks the product row until the transaction ends, so only one order at a time can sell it
+		Task LockProductAsync(int productId, CancellationToken ct = default);
 	}
 }
