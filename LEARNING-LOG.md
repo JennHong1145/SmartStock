@@ -74,3 +74,30 @@
 **Also noticed:** the whole script is wrapped in `BEGIN TRANSACTION` and `COMMIT`, so if one step fails, nothing is half-applied.
 
 **Test:** the negative price update failed with error 547, which is what I wanted. The foreign key also blocked an insert with a missing parent order, so that rule works too.
+
+## Day 9 - Repository, Unit of Work & Service Layer
+
+### What I learned
+- **Repository:** It sits between my code and `AppDbContext`, so controllers and services don't touch the DbContext directly. It only adds, updates and removes in memory. It never saves.
+- **Unit of Work:** It holds all the repositories and does the one `SaveChangesAsync`. They all share the same `AppDbContext`, so one save covers everything, and my audit and soft delete code still runs. I registered it as scoped because the DbContext is scoped.
+- **Transactions:** One `SaveChangesAsync` is already a transaction. I only need `BeginTransactionAsync` when a service saves more than once, like a sale that also writes stock movements.
+- **Service layer:** The business rules live here, like unique SKU, parent category must exist, and a category can't be deleted if it's still in use. This way every caller gets the same rules.
+- **DTOs:** The API only returns DTOs, never entities. The controller stays thin. It calls the service and turns the result into a status code.
+- **Enum result:** Category delete returns an enum, because a plain `bool` can't tell "not found" apart from "still in use".
+
+### What I tested
+- `POST /api/Products` with a negative price returned `400` ("The field Price must be between 0 and 1000000"). The `[Range]` rule on the request stopped it before it reached the service.
+- I created product 9 (`FUR-001`) and then deleted it. In SSMS the row is still there with `IsDeleted = 1`, and `CreatedAt` and `UpdatedAt` are filled in. So the Unit of Work still goes through my audit and soft delete logic.
+- Posting the same SKU a second time returned `409`, so the unique SKU rule in `ProductService` works.
+- `GET /api/Products/9` returned `404` after the soft delete, so the query filter also applies when loading by id.
+
+### Learning exercise: is Repository + UoW redundant over EF Core?
+The criticism is fair. `DbContext` already tracks changes and saves them together, so it is already a Unit of Work, and each `DbSet` is already a kind of repository. A generic repository on top mostly repeats Add, Remove and Find. It also hides things like `Include` and projections unless I write a new method for each one.
+
+I would use it when the app has real business rules and I want to test the services without a real database. I would also use it when many services need the same data access rules.
+
+I wouldn't use it for a small CRUD app or one with lots of custom queries, because it's extra code for no real gain. I'm keeping it in SmartStock because I'm learning the pattern, but I know the downsides: more layers, more code, and it can limit what I can do with EF.
+
+### Definition of Done
+- ProductService and CategoryService go through the repository and Unit of Work. Create, delete and the business rules work in Swagger and SSMS.
+- In my own words: the repository hides how data is loaded and saved, and the Unit of Work saves it all in one go. The downside is extra layers on top of something EF already does.
