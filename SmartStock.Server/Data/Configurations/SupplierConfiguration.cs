@@ -24,6 +24,9 @@ namespace SmartStock.Server.Data.Configurations
 			builder.Property(s => s.CreatedBy).HasMaxLength(450);
 			builder.Property(s => s.UpdatedBy).HasMaxLength(450);
 
+			// Suppliers are searched by contact email
+			builder.HasIndex(s => s.ContactEmail);
+
 			builder.HasQueryFilter(s => !s.IsDeleted);
 		}
 	}
