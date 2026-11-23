@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore.Storage;
+﻿using Microsoft.EntityFrameworkCore;
 using SmartStock.Server.Data;
 using SmartStock.Server.Entities;
 
@@ -7,13 +7,11 @@ namespace SmartStock.Server.Repositories
 	public class UnitOfWork : IUnitOfWork
 	{
 		private readonly AppDbContext _db;
-		private IDbContextTransaction? _transaction;
 
 		public UnitOfWork(AppDbContext db)
 		{
 			_db = db;
 
-			// All repositories share the same DbContext, so one SaveChanges covers all of them
 			Categories = new Repository<Category>(db);
 			Products = new Repository<Product>(db);
 			Suppliers = new Repository<Supplier>(db);
@@ -36,30 +34,38 @@ namespace SmartStock.Server.Repositories
 		public Task<int> SaveChangesAsync(CancellationToken ct = default)
 			=> _db.SaveChangesAsync(ct);
 
-		public async Task BeginTransactionAsync(CancellationToken ct = default)
-			=> _transaction = await _db.Database.BeginTransactionAsync(ct);
-
-		public async Task CommitAsync(CancellationToken ct = default)
+		public Task<T> ExecuteInTransactionAsync<T>(Func<Task<T>> operation, CancellationToken ct = default)
 		{
-			if (_transaction == null) return;
+			var strategy = _db.Database.CreateExecutionStrategy();
 
-			await _transaction.CommitAsync(ct);
-			await _transaction.DisposeAsync();
-			_transaction = null;
+			// On a transient SQL error the strategy runs this whole block again from the start
+			return strategy.ExecuteAsync(async () =>
+			{
+				// If we leave without Commit, disposing the transaction rolls everything back
+				await using var tx = await _db.Database.BeginTransactionAsync(ct);
+				try
+				{
+					var result = await operation();
+					await tx.CommitAsync(ct);
+					return result;
+				}
+				catch
+				{
+					// Forget half-built entities, so a retry starts clean
+					_db.ChangeTracker.Clear();
+					throw;
+				}
+			});
 		}
 
-		public async Task RollbackAsync(CancellationToken ct = default)
-		{
-			if (_transaction == null) return;
+		public Task<int> GetCurrentStockAsync(int productId, CancellationToken ct = default)
+			=> StockQueries.GetCurrentStockAsync(_db, productId);
 
-			await _transaction.RollbackAsync(ct);
-			await _transaction.DisposeAsync();
-			_transaction = null;
-		}
-
-		public void Dispose()
+		public async Task LockProductAsync(int productId, CancellationToken ct = default)
 		{
-			_transaction?.Dispose();
+			// UPDLOCK + HOLDLOCK: others must wait here until this transaction commits or rolls back
+			await _db.Database.ExecuteSqlInterpolatedAsync(
+				$"SELECT Id FROM Products WITH (UPDLOCK, HOLDLOCK) WHERE Id = {productId}", ct);
 		}
 	}
 }

@@ -101,3 +101,35 @@ I wouldn't use it for a small CRUD app or one with lots of custom queries, becau
 ### Definition of Done
 - ProductService and CategoryService go through the repository and Unit of Work. Create, delete and the business rules work in Swagger and SSMS.
 - In my own words: the repository hides how data is loaded and saved, and the Unit of Work saves it all in one go. The downside is extra layers on top of something EF already does.
+
+## Day 10 - Transactional Business Logic: Placing a Sales Order
+
+### What I learned
+- **Transaction:** Placing an order touches four tables (order, order lines, stock movement, invoice). They must all be saved or none of them. I put them in one transaction, so if any step fails everything is rolled back.
+- **Execution strategy:** I turned on `EnableRetryOnFailure()`, which retries after temporary SQL errors. Once that's on, I can't use a bare `BeginTransaction`. A retry has to run the whole block again from the start, so the transaction goes inside `CreateExecutionStrategy().ExecuteAsync(...)`. I also clear the change tracker on failure so a retry starts clean.
+- **Stock guard:** Before saving anything, each line checks the stock from the ledger. If I ask for more than there is, a clear `InsufficientStockException` is thrown and the API returns `400`.
+- **Race condition:** Two requests can both read "65 in stock" and both sell it. `RowVersion` doesn't help, because they insert different rows. I lock the product row with `UPDLOCK, HOLDLOCK` inside the transaction, so the second request waits and then sees the new stock. I also sort the lines by product Id so two orders can't wait on each other (deadlock).
+- **Why two saves:** The stock movements and invoice need the order's Id, which only exists after the first save. Both saves are inside the same transaction.
+
+### What I tested
+- **Not enough stock:** 1000 of product 1 returned `400` ("requested 1000, available 67"). SalesOrders, SalesOrderItems and Invoices stayed at 0, and StockMovements stayed at my 5 old test rows.
+- **Success:** 2 of product 1 created 1 order, 1 line (LineTotal 2598.00), 1 `SaleOut` movement and 1 invoice (`INV-20261123-000002`).
+- **Rollback:** I forced an error after the order was saved. The counts stayed the same, so the transaction rolled back. The order Id also skipped a number, because SQL Server doesn't reuse identity values after a rollback.
+- **Race:** I sent 5 orders of 20 at the same time with 65 in stock. The result was three `201` and two `400`.
+- **Database after the race:** product 1 stock was exactly 5 (65 - 3 x 20), never negative. There were 4 orders and 4 invoices, so every successful order got its invoice.
+
+### Transaction boundary (learning exercise)
+1. Check the order has at least one line, and group duplicate products. This is outside the transaction because it doesn't touch the database.
+2. Open the transaction inside the retry strategy.
+3. Load the customer and check it exists.
+4. For each product: load it, lock the row, read the stock, check there's enough.
+5. Save the order and its lines, which gives the order an Id.
+6. Add one `SaleOut` stock movement per line.
+7. Add the invoice and save.
+8. Commit, which releases the locks.
+
+Steps 3 to 7 must succeed or fail together. If the order saved but the invoice failed, I'd have an order with no invoice and stock that never moved.
+
+### Definition of Done
+- A successful order creates rows in 4 tables at once: SalesOrders, SalesOrderItems, StockMovements and Invoices.
+- A failed or over-quantity order leaves the database unchanged.
