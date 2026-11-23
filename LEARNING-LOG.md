@@ -39,4 +39,14 @@
 - **Why EF can't guess:** Both `SalesOrder` and `Invoice` point to each other, and both look optional. EF can't tell which one is the parent, so I tell it with `HasForeignKey<Invoice>()`.
 - **What makes it one-to-one:** The FK alone isn't enough. It's the unique index on `Invoices.SalesOrderId` that stops a second invoice for the same order. I tried adding two in SSMS and the second one failed.
 - **Restrict on invoices:** I used `Restrict`, so an order with an invoice can't be deleted. Invoices are financial records.
-- 
+
+## Day 6 - Stock Ledger (Audit Trail)
+
+### What I learned
+- **Ledger pattern:** I never edit a "current stock" number. Every change is a new row in `StockMovements`, and the balance is the sum of the rows. My test product came out at 67 (100 in, 30 and 10 out, 5 returned, 2 adjusted), both through SQL and through EF.
+- **Composite index `(ProductId, MovementDate)`:** Most stock queries filter by product first and then by date, so the index lets SQL Server jump straight to that product's rows. The column order matters, and EF skipped the separate `ProductId` index because this one already covers it.
+- **Quantity stays positive:** The movement type decides whether it adds or subtracts. That also fits the `Quantity >= 0` check constraint coming on Day 8. The downside is `Adjustment` can only add for now.
+- **Sum of movements vs a stock column:**
+  - Sum of movements gives a full audit trail and no lost updates, but reads get slower as history grows.
+  - A `StockQty` column is instant to read, but there's no history, and two sales can race and write the same number.
+  - Later I can combine them: keep the ledger as the truth and update a cached number in the same transaction.

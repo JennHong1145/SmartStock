@@ -588,6 +588,42 @@ namespace SmartStock.Server.Migrations
                     b.ToTable("SalesOrderItems");
                 });
 
+            modelBuilder.Entity("SmartStock.Server.Entities.StockMovement", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("MovementDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("MovementType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("ReferenceId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId", "MovementDate");
+
+                    b.ToTable("StockMovements");
+                });
+
             modelBuilder.Entity("SmartStock.Server.Entities.Supplier", b =>
                 {
                     b.Property<int>("Id")
@@ -759,6 +795,17 @@ namespace SmartStock.Server.Migrations
                     b.Navigation("Product");
 
                     b.Navigation("SalesOrder");
+                });
+
+            modelBuilder.Entity("SmartStock.Server.Entities.StockMovement", b =>
+                {
+                    b.HasOne("SmartStock.Server.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Product");
                 });
 
             modelBuilder.Entity("SmartStock.Server.Entities.Category", b =>
