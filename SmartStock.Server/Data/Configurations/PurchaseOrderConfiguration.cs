@@ -17,6 +17,9 @@ namespace SmartStock.Server.Data.Configurations
 			builder.Property(po => po.TotalAmount)
 				.HasPrecision(18, 2);
 
+			builder.Property(po => po.RowVersion)
+				.IsRowVersion();
+
 			// Supplier with orders can't be deleted
 			builder.HasOne(po => po.Supplier)
 				.WithMany()

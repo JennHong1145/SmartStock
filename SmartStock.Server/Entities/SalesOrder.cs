@@ -17,5 +17,6 @@
 		public ICollection<SalesOrderItem> Items { get; set; } = new List<SalesOrderItem>();
 
 		public Invoice? Invoice { get; set; }
+		public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 	}
 }

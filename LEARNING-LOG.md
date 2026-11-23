@@ -46,7 +46,15 @@
 - **Ledger pattern:** I never edit a "current stock" number. Every change is a new row in `StockMovements`, and the balance is the sum of the rows. My test product came out at 67 (100 in, 30 and 10 out, 5 returned, 2 adjusted), both through SQL and through EF.
 - **Composite index `(ProductId, MovementDate)`:** Most stock queries filter by product first and then by date, so the index lets SQL Server jump straight to that product's rows. The column order matters, and EF skipped the separate `ProductId` index because this one already covers it.
 - **Quantity stays positive:** The movement type decides whether it adds or subtracts. That also fits the `Quantity >= 0` check constraint coming on Day 8. The downside is `Adjustment` can only add for now.
-- **Sum of movements vs a stock column:**
-  - Sum of movements gives a full audit trail and no lost updates, but reads get slower as history grows.
-  - A `StockQty` column is instant to read, but there's no history, and two sales can race and write the same number.
-  - Later I can combine them: keep the ledger as the truth and update a cached number in the same transaction.
+### Event-sourced vs cached balance
+- **Event-sourced (sum of movements):** Every unit is explained by a row, I can work out the balance at any past date, and nothing gets overwritten so there are no lost updates. The downside is that reads slow down as the ledger grows, since every balance query adds up many rows.
+- **Cached (a `StockQty` column):** Reads are instant, but there's no history to explain why the number is wrong. Two sales can read 10 and both write 9, and a bug can corrupt the number without anyone noticing.
+- **Hybrid for later:** Keep the ledger as the source of truth and update a cached `StockQty` in the same transaction as each movement. That gives fast reads and an audit trail, and the cache can be rebuilt from the ledger.
+
+## Day 7 - Concurrency, Soft Delete & Auditing
+
+### What I learned
+- **`RowVersion` vs "last one wins":** Without it, if two users load the same product and both change the price, the second save silently overwrites the first and the first change is lost. With `RowVersion`, SQL Server changes the version on every update. EF saves with `WHERE Id = 1 AND RowVersion = <old value>`, so the second save matches 0 rows and EF throws `DbUpdateConcurrencyException`. In my test, user A saved 1300, user B tried 1301 and got stopped, and the database kept 1300.
+- **Two contexts needed to test it:** Two variables in the same `DbContext` give the same tracked object, so there's no conflict. I used two scopes so each had its own `AppDbContext`, like two separate users.
+- **Soft delete with a query filter:** `HasQueryFilter(x => !x.IsDeleted)` hides deleted rows from normal queries automatically. `IgnoreQueryFilters()` shows them again. When I removed a customer, the row stayed in the table with `IsDeleted = 1`.
+- **Audit fields in `SaveChangesAsync`:** I override it so `CreatedAt` and `UpdatedAt` are filled automatically for entities that implement `IAuditable`. I also had to make sure `CreatedAt` isn't overwritten on updates. It only worked after `Product` actually declared `: IAuditable, ISoftDelete`. Before that, `UpdatedAt` stayed `NULL`.

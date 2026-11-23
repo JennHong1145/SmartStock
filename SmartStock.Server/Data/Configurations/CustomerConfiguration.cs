@@ -20,6 +20,11 @@ namespace SmartStock.Server.Data.Configurations
 
 			builder.Property(c => c.Address)
 				.HasMaxLength(250);
+
+			builder.Property(c => c.CreatedBy).HasMaxLength(450);
+			builder.Property(c => c.UpdatedBy).HasMaxLength(450);
+
+			builder.HasQueryFilter(c => !c.IsDeleted);
 		}
 	}
 }

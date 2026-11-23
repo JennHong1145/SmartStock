@@ -15,5 +15,6 @@
 		public decimal TotalAmount { get; set; }
 
 		public ICollection<PurchaseOrderItem> Items { get; set; } = new List<PurchaseOrderItem>();
+		public byte[] RowVersion { get; set; } = Array.Empty<byte>();
 	}
 }
