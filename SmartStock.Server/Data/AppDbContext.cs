@@ -27,6 +27,7 @@ namespace SmartStock.Server.Data
 
 		public DbSet<Invoice> Invoices { get; set; }
 		public DbSet<StockMovement> StockMovements { get; set; }
+		public DbSet<SalesSummaryByProduct> SalesSummaryByProducts { get; set; }
 		protected override void OnModelCreating(ModelBuilder modelBuilder)
 		{
 			base.OnModelCreating(modelBuilder);

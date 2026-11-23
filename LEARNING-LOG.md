@@ -154,3 +154,27 @@ Steps 3 to 7 must succeed or fail together. If the order saved but the invoice f
 - The N+1 stock query was found in the SQL log and fixed with one projected query.
 - The list endpoint uses `AsNoTracking` and a projection, not tracked entities.
 - I can explain when to use `AsSplitQuery`: when I include two or more collections, because a single query multiplies the rows.
+
+## Day 12 - Views & Raw SQL Reporting
+
+### What I learned
+- **SQL view from a migration:** EF can't generate a view, so I wrote the SQL myself inside `migrationBuilder.Sql(...)`. `Up()` creates `vw_SalesSummaryByProduct` and `Down()` drops it, so the migration can still be rolled back.
+- **Keyless entity:** `SalesSummaryByProduct` has no primary key because a view row isn't a table row. `HasNoKey().ToView("vw_SalesSummaryByProduct")` tells EF to read from the view and not create a table. The migration came out with empty `Up()`/`Down()` for it, which is how I knew `ToView` was working.
+- **Querying it:** I query the view like any other `DbSet`. EF just runs `SELECT ... FROM [vw_SalesSummaryByProduct]`. The API returns a `SalesSummaryDto`, not the keyless entity.
+- **What the view counts:** Only `Confirmed` and `Shipped` orders, so Draft and Cancelled orders aren't counted as sales. Revenue uses the `LineTotal` computed column from Day 8, so the line math isn't repeated. Only products that have sold show up (inner join).
+- **FromSqlInterpolated:** For the date range the view has no date column, so I used `FromSqlInterpolated`. Each `{value}` becomes a SQL parameter. In the log the SQL text had `@p0` and `@p1` and the dates were sent separately as `DateTime2` parameters.
+- **SQL injection:** `FromSqlRaw` with string concatenation puts the user's text right into the SQL, so something like `'; DROP TABLE Products; --` would run. Interpolation sends the value as a parameter, so it's only ever data. The trap is `FromSqlRaw($"...{x}")`: the `$` builds the string first, so it's just as unsafe.
+- **No ORDER BY inside raw SQL:** EF wraps the raw query in a subquery to add its own `OrderBy`, and SQL Server doesn't allow `ORDER BY` inside that.
+
+### What I tested
+- The view returned product 1 with 62 units and 80538.00 revenue. My cross-check query on the raw tables gave the same numbers.
+- `GET /api/Reports/sales-summary` ran a single `SELECT` on the view, ordered by revenue.
+- The date-range endpoint logged `@p0` and `@p1` as `DateTime2` parameters, not the dates in the SQL text.
+
+### Learning exercise: view + keyless entity vs LINQ
+I'd use a view when the report is a big join with grouping that lots of places need, because the logic lives in one spot and EF just reads it. It's also good when someone else, like a BI tool or a DBA, needs the same numbers. This report was a good fit because it joins three tables and groups them, and the result isn't an entity I ever save. I'd stay with LINQ for small or one-off queries, or when the filters change a lot, because a view is another database object I have to keep in sync with a migration.
+
+### Definition of Done
+- `vw_SalesSummaryByProduct` exists and returns correct totals (checked against the raw tables).
+- I can read it through EF with strongly typed results.
+- I can explain why string concatenation in `FromSqlRaw` is a SQL injection risk and `FromSqlInterpolated` isn't.
