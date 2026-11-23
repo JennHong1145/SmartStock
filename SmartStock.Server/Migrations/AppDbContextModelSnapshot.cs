@@ -432,6 +432,66 @@ namespace SmartStock.Server.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SmartStock.Server.Entities.PurchaseOrder", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("OrderDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("SupplierId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SupplierId");
+
+                    b.ToTable("PurchaseOrders");
+                });
+
+            modelBuilder.Entity("SmartStock.Server.Entities.PurchaseOrderItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PurchaseOrderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("PurchaseOrderId");
+
+                    b.ToTable("PurchaseOrderItems");
+                });
+
             modelBuilder.Entity("SmartStock.Server.Entities.Supplier", b =>
                 {
                     b.Property<int>("Id")
@@ -534,11 +594,46 @@ namespace SmartStock.Server.Migrations
                     b.Navigation("Category");
                 });
 
+            modelBuilder.Entity("SmartStock.Server.Entities.PurchaseOrder", b =>
+                {
+                    b.HasOne("SmartStock.Server.Entities.Supplier", "Supplier")
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Supplier");
+                });
+
+            modelBuilder.Entity("SmartStock.Server.Entities.PurchaseOrderItem", b =>
+                {
+                    b.HasOne("SmartStock.Server.Entities.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("SmartStock.Server.Entities.PurchaseOrder", "PurchaseOrder")
+                        .WithMany("Items")
+                        .HasForeignKey("PurchaseOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+
+                    b.Navigation("PurchaseOrder");
+                });
+
             modelBuilder.Entity("SmartStock.Server.Entities.Category", b =>
                 {
                     b.Navigation("Products");
 
                     b.Navigation("SubCategories");
+                });
+
+            modelBuilder.Entity("SmartStock.Server.Entities.PurchaseOrder", b =>
+                {
+                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }
