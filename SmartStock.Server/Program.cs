@@ -36,6 +36,12 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IReportService, ReportService>();
+// Let the Blazor WASM dev server call this API (it runs on a different port)
+builder.Services.AddCors(options =>
+{
+	options.AddPolicy("DevClient", policy =>
+		policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod());
+});
 
 var app = builder.Build();
 
@@ -59,6 +65,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+if (app.Environment.IsDevelopment())
+{
+	app.UseCors("DevClient");
+}
 
 app.UseAuthorization();
 

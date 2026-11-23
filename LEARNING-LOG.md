@@ -208,3 +208,27 @@ I'd use a view when the report is a big join with grouping that lots of places n
 - [x] Realistic sample data loads only in Development
 - [x] Connection string no longer committed to source control
 - [x] Rolled a migration back and forward successfully
+
+## Day 14 - Blazor WASM Client
+
+### What I learned
+- **CORS:** The Blazor client runs on its own port (`7075`) and the API on another (`7067`). The browser blocks calls between them unless the API allows it. I added a CORS policy in `Program.cs` and only turn it on in Development.
+- **Typed `HttpClient`:** `ProductApiClient` and `OrderApiClient` hold the URLs and JSON handling, so the pages only call methods like `GetPagedAsync`. The template's plain `HttpClient` pointed at the client's own address, so I replaced it with `AddHttpClient<T>` using the API's address.
+- **Shared DTOs:** The client uses the same `ProductListDto`, `PagedResult<T>` and `PlaceSalesOrderRequest` classes as the server through `SmartStock.Shared`, so the JSON shape can't drift apart.
+- **Paged list:** The Products page sends page, sort, search and direction to `api/Products/paged`. The server does the paging, so the browser only gets 10 rows at a time. It showed 38 products, not 39, because the soft-deleted product is hidden by the query filter.
+- **400 vs 409:** A 400 means the request broke a business rule (not enough stock, unknown customer), and the user can fix it and retry. A 409 means someone else changed the same data, so the right message is "try again". The page shows 400 in red and 409 in yellow.
+- **Why my order endpoint never gives a real 409:** `PlaceSalesOrderAsync` only inserts rows and never updates a `Product`, so the `RowVersion` check never runs. The `UPDLOCK, HOLDLOCK` lock from Day 10 already stops the race. The 409 catch in `OrdersController` is a safety net. The one place my API returns a real 409 is a duplicate SKU on `POST api/Products`.
+- **Turning errors into messages:** `OrderApiClient` reads `{ message }` from my own 400s, validation errors, or plain text, and gives the page one error string.
+- **Client checks don't replace server checks:** The form stops an empty product or a quantity under 1 before sending, but the server checks everything again.
+- **Empty template:** My project had no `NavMenu.razor` or Bootstrap, so I added a simple nav in `MainLayout.razor` and the Bootstrap link in `index.html`.
+- **Two startup projects:** With both set to Start, Microsoft Edge only opened the Swagger tab, but Chrome opened both. So it was the browser, not my code.
+
+### What I tested
+- Products page: sorting, search, and Next and Previous.
+- Place Order page: a successful order, quantity above stock, an unknown customer, and no product chosen. All behaved as expected.
+- 409: I temporarily threw `DbUpdateConcurrencyException` for customer `777` and checked the yellow message and the 409 in the Network tab. Then I removed the throw.
+
+### Definition of Done
+- [x] Client calls the API through typed `HttpClient`s
+- [x] Paged product list page works
+- [x] Place-order form works and shows 400 and 409 clearly
