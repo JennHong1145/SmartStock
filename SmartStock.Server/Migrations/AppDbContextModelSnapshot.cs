@@ -680,6 +680,27 @@ namespace SmartStock.Server.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SmartStock.Server.Entities.SalesSummaryByProduct", b =>
+                {
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("TotalQuantitySold")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("TotalRevenue")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.ToTable((string)null);
+
+                    b.ToView("vw_SalesSummaryByProduct", (string)null);
+                });
+
             modelBuilder.Entity("SmartStock.Server.Entities.StockMovement", b =>
                 {
                     b.Property<int>("Id")
