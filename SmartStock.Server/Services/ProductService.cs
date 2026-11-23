@@ -1,4 +1,5 @@
-﻿using SmartStock.Server.Entities;
+﻿using Microsoft.EntityFrameworkCore;
+using SmartStock.Server.Entities;
 using SmartStock.Server.Repositories;
 using SmartStock.Shared.Dtos;
 
@@ -21,7 +22,7 @@ namespace SmartStock.Server.Services
 
 		public async Task<ProductDto?> GetByIdAsync(int id, CancellationToken ct = default)
 		{
-			var product = await _uow.Products.GetByIdAsync(id, ct);
+			var product = await _uow.Products.GetByIdNoTrackingAsync(id, ct);
 			return product == null ? null : ToDto(product);
 		}
 
@@ -57,6 +58,73 @@ namespace SmartStock.Server.Services
 			return true;
 		}
 
+		public async Task<PagedResult<ProductListDto>> GetPagedAsync(ProductListQuery q, CancellationToken ct = default)
+		{
+			// Keep the page numbers sensible
+			var page = Math.Max(1, q.Page);
+			var pageSize = Math.Clamp(q.PageSize, 1, 100);
+
+			var products = _uow.Products.Query();
+			var categories = _uow.Categories.Query();
+			var movements = _uow.StockMovements.Query();
+
+			// Filter first, on the Products table, so SQL Server does less work
+			if (!string.IsNullOrWhiteSpace(q.Search))
+			{
+				var s = q.Search.Trim();
+				products = products.Where(p => p.Name.Contains(s) || p.SKU.Contains(s));
+			}
+
+			if (q.CategoryId != null)
+				products = products.Where(p => p.CategoryId == q.CategoryId);
+
+			var totalCount = await products.CountAsync(ct);
+
+			// One query: category name and stock are worked out inside SQL
+			var list =
+				from p in products
+				join c in categories on p.CategoryId equals c.Id
+				select new ProductListDto
+				{
+					Id = p.Id,
+					SKU = p.SKU,
+					Name = p.Name,
+					CategoryName = c.Name,
+					Price = p.Price,
+					CurrentStock = movements
+						.Where(m => m.ProductId == p.Id)
+						.Sum(m => m.MovementType == StockMovementType.SaleOut ? -m.Quantity : m.Quantity)
+				};
+
+			// Sorting happens in SQL too. Id is the tie-breaker so pages never overlap.
+			list = (q.SortBy.ToLowerInvariant(), q.Descending) switch
+			{
+				("sku", false) => list.OrderBy(x => x.SKU).ThenBy(x => x.Id),
+				("sku", true) => list.OrderByDescending(x => x.SKU).ThenBy(x => x.Id),
+				("category", false) => list.OrderBy(x => x.CategoryName).ThenBy(x => x.Id),
+				("category", true) => list.OrderByDescending(x => x.CategoryName).ThenBy(x => x.Id),
+				("price", false) => list.OrderBy(x => x.Price).ThenBy(x => x.Id),
+				("price", true) => list.OrderByDescending(x => x.Price).ThenBy(x => x.Id),
+				("stock", false) => list.OrderBy(x => x.CurrentStock).ThenBy(x => x.Id),
+				("stock", true) => list.OrderByDescending(x => x.CurrentStock).ThenBy(x => x.Id),
+				(_, true) => list.OrderByDescending(x => x.Name).ThenBy(x => x.Id),
+				_ => list.OrderBy(x => x.Name).ThenBy(x => x.Id)
+			};
+
+			var items = await list
+				.Skip((page - 1) * pageSize)
+				.Take(pageSize)
+				.ToListAsync(ct);
+
+			return new PagedResult<ProductListDto>
+			{
+				Items = items,
+				TotalCount = totalCount,
+				Page = page,
+				PageSize = pageSize
+			};
+		}
+
 		private static ProductDto ToDto(Product p) => new()
 		{
 			Id = p.Id,
@@ -66,5 +134,6 @@ namespace SmartStock.Server.Services
 			CategoryId = p.CategoryId,
 			IsActive = p.IsActive
 		};
+
 	}
 }

@@ -4,6 +4,7 @@ using SmartStock.Server.Data;
 using SmartStock.Server.Entities;
 using SmartStock.Server.Repositories;
 using SmartStock.Server.Services;
+using Microsoft.Extensions.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,9 +15,19 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AppDbContext>(options =>
+{
 	options.UseSqlServer(
 		builder.Configuration.GetConnectionString("DefaultConnection"),
-		sql => sql.EnableRetryOnFailure()));
+		sql => sql.EnableRetryOnFailure());
+
+	// Log SQL only while developing, so production doesn't print every query
+	if (builder.Environment.IsDevelopment())
+	{
+		options.LogTo(message => System.Diagnostics.Debug.WriteLine(message),
+			new[] { DbLoggerCategory.Database.Command.Name }, LogLevel.Information);
+	}
+});
+
 builder.Services.AddIdentityCore<ApplicationUser>()
 	.AddRoles<IdentityRole>()
 	.AddEntityFrameworkStores<AppDbContext>();

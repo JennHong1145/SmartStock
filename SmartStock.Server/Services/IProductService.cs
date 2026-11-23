@@ -13,5 +13,7 @@ namespace SmartStock.Server.Services
 
 		// Returns false if the product doesn't exist
 		Task<bool> DeleteAsync(int id, CancellationToken ct = default);
+
+		Task<PagedResult<ProductListDto>> GetPagedAsync(ProductListQuery query, CancellationToken ct = default);
 	}
 }

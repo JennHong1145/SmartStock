@@ -133,3 +133,24 @@ Steps 3 to 7 must succeed or fail together. If the order saved but the invoice f
 ### Definition of Done
 - A successful order creates rows in 4 tables at once: SalesOrders, SalesOrderItems, StockMovements and Invoices.
 - A failed or over-quantity order leaves the database unchanged.
+
+## Day 11 - Advanced Querying & Performance
+
+### What I learned
+- **Projection:** `ProductListDto` is built with `Select`, so SQL only returns the 6 columns I need (Id, SKU, Name, category name, price, stock). No `Product` or `Category` entities are loaded, and the stock is worked out as a subquery inside the same query.
+- **Pagination, filter and sort:** All of it happens in SQL (`Where`, `OrderBy`, `Skip`, `Take`). I sort by `Id` as a tie-breaker, so the same row can't show up on two pages. The total count is a second query, which is normal.
+- **N+1:** I wrote the bad version on purpose. It ran 1 query for the products, 1 for the categories, and then 1 stock query for every product, so 10 queries for 8 products. The single projected query needs only 2 (the count and the page). With 1,000 products the bad version would fire 1,002 queries. In C# it looks harmless, but in the SQL log it's obvious.
+- **AsNoTracking:** A read-only query doesn't need change tracking. I added `Query()` and `GetByIdNoTrackingAsync` to the repository and used them in the list and detail reads, and for the customer and product lookups when placing an order. I kept tracking where I change the entity, like the deletes and the order I'm saving.
+- **IQueryable in the repository:** Exposing `Query()` made projections possible, but it leaks EF into the services. That's the downside I wrote about on Day 9. I only use it inside services.
+- **Include vs AsSplitQuery:** For category 1 I included two collections (4 sub-categories and 2 products). One query repeats every sub-category for every product (4 x 2 = 8 rows). `AsSplitQuery` ran 3 small queries instead (1 + 4 + 2 = 7 rows). The gap is small here, but it grows by multiplication: 100 and 100 would be 10,000 rows against about 200. I'd use split queries when I include two or more collections. The cost is more round trips, and the data could change a little between the queries.
+
+### Learning exercise: reading the SQL log
+- `Include` loads all 13 columns of `Product`, including `RowVersion` and the audit fields, which a list never needs. My projection only selects 6.
+- The soft-delete filter (`IsDeleted = 0`) showed up inside the products subquery, so it also applies through `Include`.
+- Each split query repeats the `SELECT TOP(1)` parent subquery instead of reusing the first result.
+- The N+1 log was 8 identical `SUM` queries that only differed by the parameter.
+
+### Definition of Done
+- The N+1 stock query was found in the SQL log and fixed with one projected query.
+- The list endpoint uses `AsNoTracking` and a projection, not tracked entities.
+- I can explain when to use `AsSplitQuery`: when I include two or more collections, because a single query multiplies the rows.
