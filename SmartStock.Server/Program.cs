@@ -42,6 +42,13 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
 	await RoleSeeder.SeedRolesAsync(scope.ServiceProvider);
+
+	// Realistic sample data only on a developer machine
+	if (app.Environment.IsDevelopment())
+	{
+		var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+		await DataSeeder.SeedAsync(db);
+	}
 }
 
 // Configure the HTTP request pipeline.
