@@ -28,7 +28,7 @@ namespace SmartStock.Server.Services
 
 			return await _uow.ExecuteInTransactionAsync(async () =>
 			{
-				var customer = await _uow.Customers.GetByIdAsync(customerId, ct);
+				var customer = await _uow.Customers.GetByIdNoTrackingAsync(customerId, ct);
 				if (customer == null)
 					throw new BusinessRuleException($"Customer {customerId} was not found.");
 
@@ -46,7 +46,7 @@ namespace SmartStock.Server.Services
 					if (line.Quantity <= 0)
 						throw new BusinessRuleException("Quantity must be more than 0.");
 
-					var product = await _uow.Products.GetByIdAsync(line.ProductId, ct);
+					var product = await _uow.Products.GetByIdNoTrackingAsync(line.ProductId, ct);
 					if (product == null || !product.IsActive)
 						throw new BusinessRuleException($"Product {line.ProductId} was not found or is not active.");
 

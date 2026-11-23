@@ -26,6 +26,10 @@ namespace SmartStock.Server.Controllers
 			return product == null ? NotFound() : Ok(product);
 		}
 
+		[HttpGet("paged")]
+		public async Task<ActionResult<PagedResult<ProductListDto>>> GetPaged([FromQuery] ProductListQuery query, CancellationToken ct)
+			=> Ok(await _service.GetPagedAsync(query, ct));
+
 		[HttpPost]
 		public async Task<ActionResult<ProductDto>> Create(CreateProductRequest request, CancellationToken ct)
 		{

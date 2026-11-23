@@ -15,5 +15,11 @@ namespace SmartStock.Server.Repositories
 		void Update(T entity);
 
 		void Remove(T entity);
+
+		// Read-only query for projections (no tracking)
+		IQueryable<T> Query();
+
+		// Read-only: loads one row without tracking it
+		Task<T?> GetByIdNoTrackingAsync(int id, CancellationToken ct = default);
 	}
 }

@@ -21,7 +21,7 @@ namespace SmartStock.Server.Services
 
 		public async Task<CategoryDto?> GetByIdAsync(int id, CancellationToken ct = default)
 		{
-			var category = await _uow.Categories.GetByIdAsync(id, ct);
+			var category = await _uow.Categories.GetByIdNoTrackingAsync(id, ct);
 			return category == null ? null : ToDto(category);
 		}
 
