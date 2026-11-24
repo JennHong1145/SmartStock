@@ -62,10 +62,15 @@ namespace SmartStock.Server.Repositories
 			=> StockQueries.GetCurrentStockAsync(_db, productId);
 
 		public async Task LockProductAsync(int productId, CancellationToken ct = default)
-		{
-			// UPDLOCK + HOLDLOCK: others must wait here until this transaction commits or rolls back
-			await _db.Database.ExecuteSqlInterpolatedAsync(
-				$"SELECT Id FROM Products WITH (UPDLOCK, HOLDLOCK) WHERE Id = {productId}", ct);
-		}
+{
+	// UPDLOCK + HOLDLOCK is SQL Server syntax. Other providers (like SQLite in tests)
+	// don't support it, so only run it on SQL Server.
+	if (!_db.Database.IsSqlServer())
+		return;
+
+	// Others must wait here until this transaction commits or rolls back
+	await _db.Database.ExecuteSqlInterpolatedAsync(
+		$"SELECT Id FROM Products WITH (UPDLOCK, HOLDLOCK) WHERE Id = {productId}", ct);
+}
 	}
 }

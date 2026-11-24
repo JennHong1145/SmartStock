@@ -30,14 +30,21 @@ namespace SmartStock.Server.Controllers
 		public async Task<ActionResult<PagedResult<ProductListDto>>> GetPaged([FromQuery] ProductListQuery query, CancellationToken ct)
 			=> Ok(await _service.GetPagedAsync(query, ct));
 
-		[HttpPost]
-		public async Task<ActionResult<ProductDto>> Create(CreateProductRequest request, CancellationToken ct)
-		{
-			var created = await _service.CreateAsync(request, ct);
-			if (created == null) return Conflict("A product with this SKU already exists.");
+[HttpPost]
+public async Task<ActionResult<ProductDto>> Create(CreateProductRequest request, CancellationToken ct)
+{
+	try
+	{
+		var created = await _service.CreateAsync(request, ct);
+		if (created == null) return Conflict("A product with this SKU already exists.");
 
-			return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
-		}
+		return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+	}
+	catch (BusinessRuleException ex)
+	{
+		return BadRequest(new { message = ex.Message });
+	}
+}
 
 		[HttpDelete("{id:int}")]
 		public async Task<IActionResult> Delete(int id, CancellationToken ct)
