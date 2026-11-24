@@ -26,26 +26,34 @@ namespace SmartStock.Server.Services
 			return product == null ? null : ToDto(product);
 		}
 
-		public async Task<ProductDto?> CreateAsync(CreateProductRequest request, CancellationToken ct = default)
-		{
-			// Business rule: SKU must be unique
-			var existing = await _uow.Products.FindAsync(p => p.SKU == request.SKU, ct);
-			if (existing.Count > 0) return null;
+public async Task<ProductDto?> CreateAsync(CreateProductRequest request, CancellationToken ct = default)
+{
+	// Business rules that don't depend on the DTO attributes
+	if (request.Price < 0)
+		throw new BusinessRuleException("Price must be 0 or more.");
 
-			var product = new Product
-			{
-				SKU = request.SKU,
-				Name = request.Name,
-				Price = request.Price,
-				CategoryId = request.CategoryId,
-				IsActive = true
-			};
+	var categoryExists = await _uow.Categories.Query().AnyAsync(c => c.Id == request.CategoryId, ct);
+	if (!categoryExists)
+		throw new BusinessRuleException($"Category {request.CategoryId} does not exist.");
 
-			await _uow.Products.AddAsync(product, ct);
-			await _uow.SaveChangesAsync(ct);
+	// Business rule: SKU must be unique
+	var existing = await _uow.Products.FindAsync(p => p.SKU == request.SKU, ct);
+	if (existing.Count > 0) return null;
 
-			return ToDto(product);
-		}
+	var product = new Product
+	{
+		SKU = request.SKU,
+		Name = request.Name,
+		Price = request.Price,
+		CategoryId = request.CategoryId,
+		IsActive = true
+	};
+
+	await _uow.Products.AddAsync(product, ct);
+	await _uow.SaveChangesAsync(ct);
+
+	return ToDto(product);
+}
 
 		public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
 		{

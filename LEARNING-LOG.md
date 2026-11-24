@@ -6,7 +6,7 @@
 - **`Up()` vs `Down()`:** Up() is used to apply changes to the database schema, while Down() is used to revert those changes
 - **`__EFMigrationsHistory`:** It is a table that keeps track of the migrations that have been applied to the database.
 - **Scoped `DbContext`:** DbContext is registered as a scoped service, meaning a new instance is created for each request.
-- **`DeleteBehavior.Restrict`:** The 'Delete' behavior restricts is because the parent entity has related child entitites.
+- **`DeleteBehavior.Restrict`:** It stops me from deleting a parent row while child rows still point to it. The delete fails with a foreign key error instead of removing the children.
 
 ## Day 2 - Product Entity & Relationships
 
@@ -24,6 +24,14 @@
 - **`AddIdentityCore` and scopes:** I used `AddIdentityCore` because the front end is Blazor WASM, so no Razor login UI is needed. The seeder runs in a manual scope because `DbContext` is scoped and there's no HTTP request at startup.
 - **`IdentityDbContext` vs `DbContext`:** A plain `DbContext` has no tables until I define them. `IdentityDbContext<ApplicationUser>` already comes with the user and role tables (`AspNetUsers`, `AspNetRoles`, `AspNetUserRoles` and more), so I didn't write any of them. They still get created through my own migration.
 - **Where the `AspNet` tables come from:** The base class declares them and sets them up in its own `OnModelCreating`, which is why `base.OnModelCreating(modelBuilder)` has to stay in my override. My `FullName` column shows up in `AspNetUsers` because `ApplicationUser` is the user type I passed in.
+
+### What I tested
+- Checked `AspNetUsers` and `AspNetUserRoles` in SSMS. There is 1 user, and that user is in the `Admin` role. `Staff` has no users yet.
+
+### Definition of Done
+- [x] Identity tables created through my own migration
+- [x] Roles seeded (`Admin`, `Staff`)
+- [x] A user exists and is assigned a role (seen in `AspNetUserRoles`)
 
 ## Day 4 - Purchase Orders (Stock In)
 
@@ -90,6 +98,7 @@
 - I created product 9 (`FUR-001`) and then deleted it. In SSMS the row is still there with `IsDeleted = 1`, and `CreatedAt` and `UpdatedAt` are filled in. So the Unit of Work still goes through my audit and soft delete logic.
 - Posting the same SKU a second time returned `409`, so the unique SKU rule in `ProductService` works.
 - `GET /api/Products/9` returned `404` after the soft delete, so the query filter also applies when loading by id.
+- I moved the price and category checks into `ProductService.CreateAsync`, so the rules don't depend only on the `[Range]` attribute. A `CategoryId` that doesn't exist (9999) now returns `400` with "Category 9999 does not exist." and not a foreign key error. A valid category returned `201`, and a duplicate SKU still returned `409`.
 
 ### Learning exercise: is Repository + UoW redundant over EF Core?
 The criticism is fair. `DbContext` already tracks changes and saves them together, so it is already a Unit of Work, and each `DbSet` is already a kind of repository. A generic repository on top mostly repeats Add, Remove and Find. It also hides things like `Include` and projections unless I write a new method for each one.
@@ -232,3 +241,40 @@ I'd use a view when the report is a big join with grouping that lots of places n
 - [x] Client calls the API through typed `HttpClient`s
 - [x] Paged product list page works
 - [x] Place-order form works and shows 400 and 409 clearly
+
+### Learning exercise: designing an API vs a mobile app's local data layer
+The biggest difference was that the client can no longer read the data directly. Everything goes through HTTP requests and responses, so I had to design what the client sends and gets back. That meant paying attention to status codes (400 and 409), DTOs shared between server and client, and turning backend errors into friendly messages the page can show.
+
+## Day 15 - Testing, Documentation & Polish
+
+### What I learned
+- **SQLite in-memory for tests:** Each test gets its own fresh database through a `SqliteConnection` that stays open, and `EnsureCreated` builds the tables and the `HasData` rows. SQLite can't generate `RowVersion` values, so my `TestDbContext` turns those properties into plain columns for the tests only.
+- **What SQLite can't prove:** `LockProductAsync` only runs the `UPDLOCK, HOLDLOCK` SQL on SQL Server, so SQLite skips it. That means my "concurrent" test is really two orders placed one after the other, where the second fails because the first used the stock. The real race (5 orders at once on SQL Server) was tested on Day 10.
+- **A test is only trusted if I've seen it fail:** I broke `OrderService` on purpose twice. With `available + 100` in the stock check, 2 tests failed. With `.Take(0)` on the lines, 6 tests failed. I put the code back and all tests passed again.
+- **Business rule checks belong in the service:** The `[Range]` attribute on the DTO is not enough on its own. I added the price check and a "category must exist" check to `ProductService.CreateAsync`, so a bad `CategoryId` gives a clear 400 and not a foreign key error.
+
+### What I tested
+- 9 tests pass: 1 smoke test and 8 tests for `PlaceSalesOrderAsync` (valid order, stock too low, unknown customer, rollback when a later line fails, invoice number and dates, second order after stock is used, inactive product, same product on two lines).
+- In Swagger, `POST /api/Products` with a category that doesn't exist returned 400, a valid one returned 201, and a duplicate SKU returned 409.
+- Build has no errors and no warnings.
+
+### Self-review against the Definition of Done (Days 1-14)
+- **Day 1:** The `DeleteBehavior.Restrict` bullet was garbled, so I rewrote it.
+- **Day 3:** The log had no proof of a user with a role. SSMS shows 1 user in `AspNetUsers` in the `Admin` role, and I added it to the Day 3 section.
+- **Day 7:** `RowVersion` is a `timestamp` column on `Products`, `SalesOrders` and `PurchaseOrders`. I checked this in SSMS.
+- **Day 8:** All the check constraints are in the database, including `PurchaseOrderItems` quantity and unit cost. I checked this in SSMS.
+- **Day 9:** The price and category checks were missing from the service, so I added them.
+- **Day 14:** The learning exercise note was missing, so I added it.
+
+### Documentation
+- `docs/erd.md` has the ERD for all the entities.
+- `README.md` covers what the project is, the tech stack, SQL Server setup, migrations, seed data, an architecture overview and lessons learned.
+- `docs/roadmap.md` has my self-review and the v2 roadmap.
+
+### The one EF Core concept I need to practice more
+Unit of Work, and the EF Core side of it: `DbContext` change tracking and what one `SaveChangesAsync` covers. I'm not sure how the repositories share one `DbContext`.
+
+### Definition of Done
+- [x] Tests pass and cover the core transactional rule
+- [x] README is complete enough to clone and run
+- [x] I have an honest answer to "what's the one EF Core concept I need to practice more?"
