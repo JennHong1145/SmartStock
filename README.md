@@ -156,7 +156,7 @@ If anything fails, the transaction rolls back and nothing is saved.
 - The 409 response on the order endpoint was only tested with a forced exception, because the row locking prevents the real race.
 - The client has a product list and an order form only.
 
-See [docs/roadmap.md](docs/roadmap.md) for the full self-review and the v2 plan.
+See [roadmap.md](roadmap.md) for the full self-review and the v2 plan.
 
 ## Learning log
 Day-by-day notes are in [LEARNING-LOG.md](LEARNING-LOG.md).
